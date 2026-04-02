@@ -101,6 +101,11 @@
                     </div>
 
                     <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Vendor / Source Name</label>
+                        <input type="text" id="tx-vendor" required placeholder="e.g. Amazon, Party City, Ticket Sales" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none" />
+                    </div>
+
+                    <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>
                         <input type="text" id="tx-desc" required placeholder="e.g. DJ Deposit, Decor Supplies" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none" />
                     </div>
@@ -131,6 +136,20 @@
         <!-- Tab Content: Admin Panel -->
         <div id="tab-admin" class="tab-content space-y-8">
             <div>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-slate-800">Active Cash Advances</h2>
+                    <button type="button" onclick="openIssueAdvanceModal()" class="bg-blue-900 text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-blue-800 transition-colors flex items-center">
+                        <i data-lucide="banknote" class="h-4 w-4 mr-2"></i> Issue Advance
+                    </button>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div id="admin-advances" class="divide-y divide-slate-100">
+                        <!-- Advances injected via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div>
                 <h2 class="text-2xl font-bold text-slate-800 mb-4">Pending Approvals</h2>
                 <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
                     <div id="admin-pending" class="divide-y divide-slate-100">
@@ -146,14 +165,37 @@
                         <thead class="bg-slate-50">
                             <tr>
                                 <th class="px-6 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Vendor/Source</th>
                                 <th class="px-6 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Description</th>
                                 <th class="px-6 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Submitter</th>
                                 <th class="px-6 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Amount</th>
                                 <th class="px-6 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-right font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="admin-history" class="bg-white divide-y divide-slate-200">
                             <!-- History injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-xl font-bold text-slate-800 mb-4">Cash Advance History</h2>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Description</th>
+                                <th class="px-6 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Recipient</th>
+                                <th class="px-6 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Amount</th>
+                                <th class="px-6 py-3 text-left font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-right font-medium text-slate-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-advance-history" class="bg-white divide-y divide-slate-200">
+                            <!-- Advance History injected via JS -->
                         </tbody>
                     </table>
                 </div>
@@ -219,6 +261,92 @@
         </div>
     </div>
 
+    <!-- Issue Advance Modal -->
+    <div id="issue-advance-modal" class="hidden fixed inset-0 modal-overlay flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-slate-800">Issue Cash Advance</h3>
+                <button onclick="closeIssueAdvanceModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+            <form id="issue-advance-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Recipient Name</label>
+                    <input type="text" id="adv-name" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Recipient Email</label>
+                    <input type="email" id="adv-email" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Purpose / Description</label>
+                    <input type="text" id="adv-desc" required placeholder="e.g. Costco run for decorations" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Advance Amount ($)</label>
+                    <input type="number" id="adv-amount" required step="0.01" min="0" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none" />
+                </div>
+                <button type="submit" id="btn-issue-adv" class="w-full bg-blue-900 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-800 transition-colors mt-2">
+                    Issue Funds
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resolve Advance Modal -->
+    <div id="resolve-advance-modal" class="hidden fixed inset-0 modal-overlay flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold text-slate-800">Resolve Cash Advance</h3>
+                <button onclick="closeResolveAdvanceModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+            <p class="text-sm text-slate-500 mb-4">Select the pending receipt submitted by the student to link to this advance. This will automatically approve their receipt and close this active advance.</p>
+            <form id="resolve-advance-form" class="space-y-4">
+                <input type="hidden" id="res-adv-id" />
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Select Pending Receipt</label>
+                    <select id="res-pending-tx" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-900 outline-none">
+                        <!-- Options injected via JS -->
+                    </select>
+                </div>
+                <button type="submit" id="btn-resolve-adv" class="w-full bg-green-600 text-white py-2.5 rounded-lg font-semibold hover:bg-green-700 transition-colors mt-2">
+                    Link and Finalize
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div id="details-modal" class="hidden fixed inset-0 modal-overlay flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-50 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all flex flex-col max-h-[90vh]">
+            <div class="flex justify-between items-center p-6 pb-4 bg-white border-b border-slate-200">
+                <h3 class="text-xl font-bold text-slate-800">Transaction Details</h3>
+                <button onclick="closeDetailsModal()" class="text-slate-400 hover:text-slate-600 bg-slate-100 p-1.5 rounded-full transition-colors">
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto" id="details-content">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="hidden fixed inset-0 modal-overlay flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all p-6 text-center">
+            <i data-lucide="alert-triangle" class="h-12 w-12 text-red-500 mx-auto mb-4"></i>
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Delete Transaction?</h3>
+            <p class="text-slate-500 text-sm mb-6">This action cannot be undone. Are you sure you want to permanently delete this record?</p>
+            <div class="flex space-x-3">
+                <button onclick="closeDeleteModal()" class="flex-1 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-semibold hover:bg-slate-50 transition-colors">Cancel</button>
+                <button onclick="confirmDeleteTx()" class="flex-1 py-2.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors" id="btn-confirm-delete">Delete</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase Logic & App Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -227,7 +355,7 @@
             signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously 
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { 
-            getFirestore, collection, addDoc, updateDoc, doc, onSnapshot 
+            getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot 
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // Initialize Lucide Icons
@@ -254,6 +382,7 @@
         let isAdmin = false;
         let isSignupMode = false;
         let transactions = [];
+        let txToDelete = null;
 
         // --- Auth Observer ---
         onAuthStateChanged(auth, async (user) => {
@@ -372,11 +501,11 @@
             const balanceEl = document.getElementById('trust-balance');
             
             let currentBalance = 0;
-            const approvedTx = transactions.filter(t => t.status === 'approved');
+            const approvedTx = transactions.filter(t => t.status === 'approved' || t.status === 'active');
 
             approvedTx.forEach(tx => {
                 if (tx.type === 'income') currentBalance += Number(tx.amount);
-                if (tx.type === 'expense') currentBalance -= Number(tx.amount);
+                if (tx.type === 'expense' || tx.type === 'advance') currentBalance -= Number(tx.amount);
             });
 
             balanceEl.textContent = `$${currentBalance.toFixed(2)}`;
@@ -390,15 +519,15 @@
             container.innerHTML = approvedTx.map(tx => `
                 <div class="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
                     <div class="flex items-center space-x-4">
-                        <div class="p-3 rounded-full ${tx.type === 'income' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}">
-                            <i data-lucide="${tx.type === 'income' ? 'plus-circle' : 'receipt'}" class="h-5 w-5"></i>
+                        <div class="p-3 rounded-full ${tx.type === 'income' ? 'bg-green-100 text-green-600' : tx.type === 'advance' ? 'bg-yellow-100 text-yellow-600' : 'bg-red-100 text-red-600'}">
+                            <i data-lucide="${tx.type === 'income' ? 'plus-circle' : tx.type === 'advance' ? 'banknote' : 'receipt'}" class="h-5 w-5"></i>
                         </div>
                         <div>
-                            <p class="font-semibold text-slate-800">${escapeHTML(tx.title)}</p>
-                            <p class="text-xs text-slate-400">${new Date(tx.createdAt).toLocaleDateString()} - by ${escapeHTML(tx.submitterName)}</p>
+                            <p class="font-semibold text-slate-800">${escapeHTML(tx.title)} <span class="text-xs font-normal text-slate-500 ml-1">${tx.vendor ? `at ${escapeHTML(tx.vendor)}` : ''}</span></p>
+                            <p class="text-xs text-slate-400">${new Date(tx.createdAt).toLocaleDateString()} - by ${escapeHTML(tx.submitterName)} ${tx.type === 'advance' ? '(Active Advance)' : ''}</p>
                         </div>
                     </div>
-                    <div class="font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-slate-800'}">
+                    <div class="font-bold ${tx.type === 'income' ? 'text-green-600' : tx.type === 'advance' ? 'text-yellow-600' : 'text-slate-800'}">
                         ${tx.type === 'income' ? '+' : '-'}$${Number(tx.amount).toFixed(2)}
                     </div>
                 </div>
@@ -421,12 +550,195 @@
             }
         };
 
+        window.promptDelete = (id) => {
+            if (!isAdmin) return;
+            txToDelete = id;
+            document.getElementById('delete-modal').classList.remove('hidden');
+        };
+
+        window.closeDeleteModal = () => {
+            txToDelete = null;
+            document.getElementById('delete-modal').classList.add('hidden');
+        };
+
+        window.confirmDeleteTx = async () => {
+            if (!isAdmin || !txToDelete) return;
+            const btn = document.getElementById('btn-confirm-delete');
+            btn.disabled = true;
+            btn.textContent = "Deleting...";
+            try {
+                await deleteDoc(doc(db, 'transactions', txToDelete));
+                showNotification("Transaction deleted successfully.");
+                closeDeleteModal();
+            } catch (error) {
+                console.error("Error deleting:", error);
+                alert("Failed to delete transaction.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Delete";
+            }
+        };
+
+        window.showDetails = (id) => {
+            const tx = transactions.find(t => t.id === id);
+            if (!tx) return;
+            
+            const container = document.getElementById('details-content');
+            
+            // Status and Type styling logic
+            const statusColors = {
+                approved: 'bg-green-100 text-green-800 border-green-200',
+                pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                rejected: 'bg-red-100 text-red-800 border-red-200',
+                active: 'bg-blue-100 text-blue-800 border-blue-200',
+                resolved: 'bg-slate-200 text-slate-800 border-slate-300'
+            };
+            const statusClass = statusColors[tx.status] || 'bg-slate-100 text-slate-800 border-slate-200';
+            
+            const typeDisplay = tx.type === 'income' ? 'Income / Deposit' : tx.type === 'advance' ? 'Cash Advance' : 'Expense / Receipt';
+            const amountColor = tx.type === 'income' ? 'text-green-600' : tx.type === 'advance' ? 'text-yellow-600' : 'text-slate-800';
+            const sign = tx.type === 'income' ? '+' : '-';
+
+            // Top Header Section (Amount, Title, Badges)
+            let html = `
+                <div class="text-center mb-8">
+                    <div class="text-5xl font-bold ${amountColor} mb-3 tracking-tight">${sign}$${Number(tx.amount).toFixed(2)}</div>
+                    <h4 class="text-xl font-bold text-slate-800 mb-4">${escapeHTML(tx.title)}</h4>
+                    <div class="flex items-center justify-center space-x-3">
+                        <span class="px-3 py-1.5 text-xs font-bold rounded-lg border ${statusClass} uppercase tracking-wide">
+                            ${tx.status}
+                        </span>
+                        <span class="px-3 py-1.5 text-xs font-bold rounded-lg border bg-white text-slate-600 border-slate-200 uppercase tracking-wide flex items-center">
+                            <i data-lucide="${tx.type === 'income' ? 'plus-circle' : tx.type === 'advance' ? 'banknote' : 'receipt'}" class="h-3.5 w-3.5 mr-1.5"></i>
+                            ${typeDisplay}
+                        </span>
+                    </div>
+                </div>
+            `;
+
+            const renderRow = (label, value, isCode = false) => {
+                if (value === undefined || value === null || value === '') return '';
+                const displayValue = isCode ? `<span class="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">${value}</span>` : `<span class="text-slate-800 text-sm font-semibold break-all">${value}</span>`;
+                return `
+                    <div class="flex justify-between items-start py-3 border-b border-slate-100 last:border-0 gap-4">
+                        <span class="text-slate-500 font-medium text-sm flex-shrink-0">${label}</span>
+                        <div class="text-right">${displayValue}</div>
+                    </div>
+                `;
+            };
+
+            // Section 1: Overview
+            html += `
+                <div class="mb-5 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center">
+                        <i data-lucide="file-text" class="h-4 w-4 mr-1.5"></i> Overview
+                    </h5>
+                    ${renderRow('Date Submitted', new Date(tx.createdAt).toLocaleString())}
+                    ${renderRow('Vendor / Source', escapeHTML(tx.vendor) || '-')}
+                    ${renderRow('Transaction ID', tx.id, true)}
+            `;
+            
+            if (tx.receiptUrl) {
+                html += `
+                    <div class="mt-4 pt-4 border-t border-slate-100">
+                        <a href="${escapeHTML(tx.receiptUrl)}" target="_blank" class="w-full flex items-center justify-center px-4 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-100 transition-colors rounded-lg font-semibold text-sm">
+                            <i data-lucide="external-link" class="h-4 w-4 mr-2"></i> View Attached Receipt
+                        </a>
+                    </div>
+                `;
+            }
+            html += `</div>`;
+
+            // Section 2: Submitter Info
+            html += `
+                <div class="mb-5 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center">
+                        <i data-lucide="user" class="h-4 w-4 mr-1.5"></i> Submitter Details
+                    </h5>
+                    ${renderRow('Name', escapeHTML(tx.submitterName))}
+                    ${renderRow('Email', escapeHTML(tx.submitterEmail))}
+                </div>
+            `;
+
+            // Section 3: Admin Review Info
+            const hasAdminInfo = tx.issuedBy || tx.reviewedBy || tx.resolvedBy || tx.linkedReceiptId || tx.linkedAdvanceId;
+            if (hasAdminInfo) {
+                html += `
+                    <div class="mb-2 bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                        <h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center">
+                            <i data-lucide="shield-check" class="h-4 w-4 mr-1.5"></i> Admin Trail
+                        </h5>
+                        ${renderRow('Issued By', escapeHTML(tx.issuedBy))}
+                        ${renderRow('Reviewed By', escapeHTML(tx.reviewedBy))}
+                        ${renderRow('Reviewed At', tx.reviewedAt ? new Date(tx.reviewedAt).toLocaleString() : '')}
+                        ${renderRow('Resolved By', escapeHTML(tx.resolvedBy))}
+                        ${renderRow('Resolved At', tx.resolvedAt ? new Date(tx.resolvedAt).toLocaleString() : '')}
+                        ${renderRow('Linked Receipt ID', tx.linkedReceiptId, true)}
+                        ${renderRow('Linked Advance ID', tx.linkedAdvanceId, true)}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+            
+            // Initialize icons for the newly injected HTML
+            lucide.createIcons({ root: container });
+            
+            document.getElementById('details-modal').classList.remove('hidden');
+        };
+
+        window.closeDetailsModal = () => {
+            document.getElementById('details-modal').classList.add('hidden');
+        };
+
         function renderAdminPanel() {
             const pendingContainer = document.getElementById('admin-pending');
             const historyContainer = document.getElementById('admin-history');
+            const advancesContainer = document.getElementById('admin-advances');
+            const advanceHistoryContainer = document.getElementById('admin-advance-history');
             
             const pendingTx = transactions.filter(t => t.status === 'pending');
+            const activeAdvances = transactions.filter(t => t.type === 'advance' && t.status === 'active');
+            const processingHistoryTx = transactions.filter(t => t.type !== 'advance');
+            const advanceHistoryTx = transactions.filter(t => t.type === 'advance');
             
+            // Render Active Advances
+            if (activeAdvances.length === 0) {
+                advancesContainer.innerHTML = `<div class="p-6 text-center text-slate-500">No active cash advances.</div>`;
+            } else {
+                advancesContainer.innerHTML = activeAdvances.map(tx => `
+                    <div class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50">
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <span class="font-semibold text-slate-800">${escapeHTML(tx.title)}</span>
+                                <span class="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800 flex items-center">
+                                    <i data-lucide="banknote" class="h-3 w-3 mr-1 inline"></i> Advance
+                                </span>
+                            </div>
+                            <div class="text-sm text-slate-500 mt-1">
+                                Issued to: <span class="font-medium text-slate-700">${escapeHTML(tx.submitterName)}</span> (${escapeHTML(tx.submitterEmail)})
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between md:justify-end md:space-x-6 w-full md:w-auto border-t md:border-0 border-slate-200 pt-4 md:pt-0">
+                            <div class="font-bold text-lg text-yellow-600">
+                                -$${Number(tx.amount).toFixed(2)}
+                            </div>
+                            <div class="flex space-x-2 items-center">
+                                <button onclick="showDetails('${tx.id}')" class="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Details">
+                                    <i data-lucide="info" class="h-5 w-5"></i>
+                                </button>
+                                <button onclick="promptDelete('${tx.id}')" class="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Delete">
+                                    <i data-lucide="trash-2" class="h-5 w-5"></i>
+                                </button>
+                                <button onclick="openResolveAdvanceModal('${tx.id}')" class="px-3 py-2 bg-blue-900 text-white rounded-md hover:bg-blue-800 transition-colors flex items-center text-sm font-medium">
+                                    Resolve to Expense
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
             if (pendingTx.length === 0) {
                 pendingContainer.innerHTML = `
                     <div class="p-8 text-center text-slate-500 flex flex-col items-center">
@@ -455,7 +767,13 @@
                             <div class="font-bold text-lg text-slate-800">
                                 ${tx.type === 'income' ? '+' : '-'}$${Number(tx.amount).toFixed(2)}
                             </div>
-                            <div class="flex space-x-2">
+                            <div class="flex space-x-2 items-center">
+                                <button onclick="showDetails('${tx.id}')" class="p-2 text-slate-400 hover:text-blue-600 transition-colors" title="Details">
+                                    <i data-lucide="info" class="h-5 w-5"></i>
+                                </button>
+                                <button onclick="promptDelete('${tx.id}')" class="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Delete">
+                                    <i data-lucide="trash-2" class="h-5 w-5"></i>
+                                </button>
                                 <button onclick="updateTxStatus('${tx.id}', 'rejected')" class="px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors flex items-center text-sm font-medium">
                                     <i data-lucide="x-circle" class="h-4 w-4 mr-1"></i> Reject
                                 </button>
@@ -468,9 +786,10 @@
                 `).join('');
             }
 
-            historyContainer.innerHTML = transactions.map(tx => `
+            historyContainer.innerHTML = processingHistoryTx.map(tx => `
                 <tr class="hover:bg-slate-50">
                     <td class="px-6 py-4 whitespace-nowrap text-slate-500">${new Date(tx.createdAt).toLocaleDateString()}</td>
+                    <td class="px-6 py-4 text-slate-500">${escapeHTML(tx.vendor) || '-'}</td>
                     <td class="px-6 py-4 font-medium text-slate-900">${escapeHTML(tx.title)}</td>
                     <td class="px-6 py-4 text-slate-500">${escapeHTML(tx.submitterName)}</td>
                     <td class="px-6 py-4 font-semibold ${tx.type === 'income' ? 'text-green-600' : 'text-slate-900'}">
@@ -478,9 +797,46 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            ${tx.status === 'approved' ? 'bg-green-100 text-green-800' : tx.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}">
+                            ${tx.status === 'approved' ? 'bg-green-100 text-green-800' : 
+                              tx.status === 'rejected' ? 'bg-red-100 text-red-800' : 
+                              'bg-yellow-100 text-yellow-800'}">
                             ${tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
                         </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                        <button onclick="showDetails('${tx.id}')" class="text-slate-400 hover:text-blue-600 transition-colors" title="Details">
+                            <i data-lucide="info" class="h-5 w-5"></i>
+                        </button>
+                        <button onclick="promptDelete('${tx.id}')" class="text-slate-400 hover:text-red-600 transition-colors" title="Delete">
+                            <i data-lucide="trash-2" class="h-5 w-5"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            advanceHistoryContainer.innerHTML = advanceHistoryTx.map(tx => `
+                <tr class="hover:bg-slate-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-slate-500">${new Date(tx.createdAt).toLocaleDateString()}</td>
+                    <td class="px-6 py-4 font-medium text-slate-900">${escapeHTML(tx.title)}</td>
+                    <td class="px-6 py-4 text-slate-500">${escapeHTML(tx.submitterName)}</td>
+                    <td class="px-6 py-4 font-semibold text-yellow-600">
+                        -$${Number(tx.amount).toFixed(2)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            ${tx.status === 'active' ? 'bg-blue-100 text-blue-800' :
+                              tx.status === 'resolved' ? 'bg-slate-100 text-slate-800' :
+                              'bg-yellow-100 text-yellow-800'}">
+                            ${tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                        <button onclick="showDetails('${tx.id}')" class="text-slate-400 hover:text-blue-600 transition-colors" title="Details">
+                            <i data-lucide="info" class="h-5 w-5"></i>
+                        </button>
+                        <button onclick="promptDelete('${tx.id}')" class="text-slate-400 hover:text-red-600 transition-colors" title="Delete">
+                            <i data-lucide="trash-2" class="h-5 w-5"></i>
+                        </button>
                     </td>
                 </tr>
             `).join('');
@@ -495,6 +851,7 @@
             const name = document.getElementById('tx-name').value;
             const email = document.getElementById('tx-email').value;
             const type = document.getElementById('tx-type').value;
+            const vendor = document.getElementById('tx-vendor').value;
             const title = document.getElementById('tx-desc').value;
             const amount = document.getElementById('tx-amount').value;
             const gdriveUrl = document.getElementById('tx-gdrive').value;
@@ -510,6 +867,7 @@
                 await addDoc(collection(db, 'transactions'), {
                     submitterName: name,
                     submitterEmail: email,
+                    vendor: vendor,
                     title: title,
                     type: type,
                     amount: Number(amount),
@@ -582,6 +940,113 @@
                 errorDiv.classList.remove('hidden');
             }
         };
+
+        // --- Cash Advance Functions ---
+        window.openIssueAdvanceModal = () => {
+            document.getElementById('issue-advance-modal').classList.remove('hidden');
+        };
+
+        window.closeIssueAdvanceModal = () => {
+            document.getElementById('issue-advance-modal').classList.add('hidden');
+            document.getElementById('issue-advance-form').reset();
+        };
+
+        document.getElementById('issue-advance-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!isAdmin) return;
+
+            const btn = document.getElementById('btn-issue-adv');
+            btn.disabled = true;
+            btn.textContent = "Issuing...";
+
+            try {
+                await addDoc(collection(db, 'transactions'), {
+                    submitterName: document.getElementById('adv-name').value,
+                    submitterEmail: document.getElementById('adv-email').value,
+                    title: document.getElementById('adv-desc').value,
+                    type: 'advance',
+                    amount: Number(document.getElementById('adv-amount').value),
+                    status: 'active',
+                    issuedBy: currentUser.email,
+                    createdAt: Date.now()
+                });
+                closeIssueAdvanceModal();
+                showNotification("Cash advance issued successfully.");
+            } catch (error) {
+                console.error("Error issuing advance:", error);
+                alert("Failed to issue advance.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Issue Funds";
+            }
+        });
+
+        window.openResolveAdvanceModal = (id) => {
+            document.getElementById('res-adv-id').value = id;
+            const selectEl = document.getElementById('res-pending-tx');
+            const btn = document.getElementById('btn-resolve-adv');
+            
+            // Get all pending expenses submitted via the form
+            const pendingExpenses = transactions.filter(t => t.status === 'pending' && t.type === 'expense');
+            
+            if (pendingExpenses.length === 0) {
+                selectEl.innerHTML = `<option value="">No pending receipts available</option>`;
+                selectEl.disabled = true;
+                btn.disabled = true;
+            } else {
+                selectEl.innerHTML = pendingExpenses.map(t => 
+                    `<option value="${t.id}">${escapeHTML(t.submitterName)} - $${Number(t.amount).toFixed(2)} (${escapeHTML(t.title)})</option>`
+                ).join('');
+                selectEl.disabled = false;
+                btn.disabled = false;
+            }
+
+            document.getElementById('resolve-advance-modal').classList.remove('hidden');
+        };
+
+        window.closeResolveAdvanceModal = () => {
+            document.getElementById('resolve-advance-modal').classList.add('hidden');
+            document.getElementById('resolve-advance-form').reset();
+        };
+
+        document.getElementById('resolve-advance-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!isAdmin) return;
+
+            const btn = document.getElementById('btn-resolve-adv');
+            btn.disabled = true;
+            btn.textContent = "Finalizing...";
+
+            const advId = document.getElementById('res-adv-id').value;
+            const pendingTxId = document.getElementById('res-pending-tx').value;
+
+            try {
+                // 1. Mark the advance as resolved so it stops subtracting from the main trust balance
+                await updateDoc(doc(db, 'transactions', advId), {
+                    status: 'resolved',
+                    linkedReceiptId: pendingTxId,
+                    resolvedBy: currentUser.email,
+                    resolvedAt: Date.now()
+                });
+
+                // 2. Approve the user's submitted pending expense so it becomes the actual math deduction
+                await updateDoc(doc(db, 'transactions', pendingTxId), {
+                    status: 'approved',
+                    linkedAdvanceId: advId,
+                    reviewedBy: currentUser.email,
+                    reviewedAt: Date.now()
+                });
+
+                closeResolveAdvanceModal();
+                showNotification("Advance successfully linked to receipt and finalized.");
+            } catch (error) {
+                console.error("Error resolving advance:", error);
+                alert("Failed to resolve advance. Check your permissions.");
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Link and Finalize";
+            }
+        });
 
     </script>
 </body>
