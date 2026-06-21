@@ -12,11 +12,11 @@
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         .modal-overlay { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+        /* Keep RFID input accessible but invisible to the user */
+        .sr-only-input { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
     </style>
 </head>
-<body class="bg-slate-50 font-sans text-slate-800 min-h-screen">
-
-    <!-- Navigation Bar -->
+<body class="bg-slate-50 font-sans text-slate-800 min-h-screen" onclick="maintainRfidFocus()">
     <nav class="bg-blue-900 text-white shadow-lg sticky top-0 z-10">
         <div class="max-w-6xl mx-auto px-4">
             <div class="flex justify-between items-center h-16">
@@ -347,6 +347,28 @@
         </div>
     </div>
 
+    <!-- RFID Verification Pseudo-2FA Modal -->
+    <div id="rfid-modal" class="hidden fixed inset-0 modal-overlay flex items-center justify-center p-4 z-[60]">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden transform transition-all p-8 text-center relative" onclick="document.getElementById('rfid-input').focus()">
+            <div class="animate-pulse mb-6">
+                <div class="bg-blue-50 p-4 rounded-full inline-flex items-center justify-center">
+                    <i data-lucide="scan-line" class="h-10 w-10 text-blue-900"></i>
+                </div>
+            </div>
+            <h3 class="text-xl font-bold text-slate-800 mb-2" id="rfid-title">Scan Badge</h3>
+            <p class="text-slate-500 text-sm mb-6" id="rfid-desc">Please scan your admin badge to proceed.</p>
+
+            <!-- Invisible input to catch RFID Scanner strokes -->
+            <input type="password" id="rfid-input" class="sr-only-input" autocomplete="off" />
+
+            <div id="rfid-error" class="hidden mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 font-medium"></div>
+
+            <button onclick="cancelRfid()" class="w-full py-2.5 rounded-lg border border-slate-300 text-slate-600 font-semibold hover:bg-slate-50 transition-colors">
+                Cancel
+            </button>
+        </div>
+    </div>
+
     <!-- Firebase Logic & App Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -355,7 +377,7 @@
             signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, signInAnonymously 
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { 
-            getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot 
+            getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDoc, setDoc, onSnapshot 
         } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // Initialize Lucide Icons
@@ -384,6 +406,12 @@
         let transactions = [];
         let txToDelete = null;
 
+        // RFID Variables
+        let adminRfid = null;
+        let rfidAuthenticated = false;
+        let currentRfidContext = null; 
+        let rfidActionPromiseResolve = null;
+
         // --- Auth Observer ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
@@ -391,10 +419,25 @@
                     // Logged in with actual account
                     currentUser = user;
                     isAdmin = user.email && user.email.endsWith('@rpeak.org');
+                    
+                    if (isAdmin) {
+                        // Check if admin has registered RFID badge
+                        adminRfid = await fetchAdminRfid(user.email);
+                        if (!adminRfid) {
+                            openRfidModal('setup');
+                        } else {
+                            openRfidModal('login');
+                        }
+                    } else {
+                        rfidAuthenticated = false;
+                        updateAuthUI();
+                    }
                 } else {
                     // Anonymous session for public submissions
                     currentUser = user;
                     isAdmin = false;
+                    rfidAuthenticated = false;
+                    updateAuthUI();
                 }
             } else {
                 // No user at all -> Auto login anonymously to allow submissions
@@ -405,7 +448,8 @@
                 }
                 return; // Wait for the observer to fire again
             }
-            updateAuthUI();
+            
+            // Prevent showing admin tab if they switch accounts but haven't scanned in
             if(!isAdmin && document.getElementById('tab-admin').classList.contains('active')) {
                 window.switchTab('dashboard');
             }
@@ -441,11 +485,13 @@
             const authContainer = document.getElementById('auth-container');
             const adminBtn = document.getElementById('btn-admin');
             
+            const fullyAuthenticatedAdmin = isAdmin && rfidAuthenticated;
+            
             if (currentUser && !currentUser.isAnonymous) {
-                adminBtn.classList.toggle('hidden', !isAdmin);
+                adminBtn.classList.toggle('hidden', !fullyAuthenticatedAdmin);
                 authContainer.innerHTML = `
                     <span class="text-sm hidden md:block opacity-80">${escapeHTML(currentUser.email)}</span>
-                    ${isAdmin ? `<span class="px-2 py-1 bg-blue-800 text-xs rounded-full border border-blue-700 flex items-center"><i data-lucide="shield-check" class="h-3 w-3 mr-1 inline"></i> Admin</span>` : ''}
+                    ${fullyAuthenticatedAdmin ? `<span class="px-2 py-1 bg-blue-800 text-xs rounded-full border border-blue-700 flex items-center"><i data-lucide="shield-check" class="h-3 w-3 mr-1 inline"></i> Admin</span>` : ''}
                     <button onclick="handleSignOut()" class="flex items-center text-sm hover:text-yellow-400 transition-colors">
                         <i data-lucide="log-out" class="h-4 w-4 mr-1"></i> Logout
                     </button>
@@ -537,6 +583,8 @@
 
         window.updateTxStatus = async (id, newStatus) => {
             if (!isAdmin) return;
+            if (!await verifyRfidAction(`${newStatus.toUpperCase()} this transaction`)) return;
+
             try {
                 await updateDoc(doc(db, 'transactions', id), { 
                     status: newStatus,
@@ -550,8 +598,10 @@
             }
         };
 
-        window.promptDelete = (id) => {
+        window.promptDelete = async (id) => {
             if (!isAdmin) return;
+            if (!await verifyRfidAction('DELETE this transaction permanently')) return;
+            
             txToDelete = id;
             document.getElementById('delete-modal').classList.remove('hidden');
         };
@@ -579,9 +629,11 @@
             }
         };
 
-        window.showDetails = (id) => {
+        window.showDetails = async (id) => {
             const tx = transactions.find(t => t.id === id);
             if (!tx) return;
+            
+            if (!await verifyRfidAction('VIEW sensitive transaction details')) return;
             
             const container = document.getElementById('details-content');
             
@@ -907,7 +959,11 @@
             document.getElementById('btn-toggle-signup').textContent = isSignupMode ? "Already have an account? Log in" : "Need an account? Sign up";
         };
 
-        window.handleSignOut = () => signOut(auth);
+        window.handleSignOut = () => {
+            rfidAuthenticated = false;
+            adminRfid = null;
+            signOut(auth);
+        };
 
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -954,6 +1010,8 @@
         document.getElementById('issue-advance-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!isAdmin) return;
+            
+            if (!await verifyRfidAction('ISSUE a cash advance')) return;
 
             const btn = document.getElementById('btn-issue-adv');
             btn.disabled = true;
@@ -1012,6 +1070,8 @@
         document.getElementById('resolve-advance-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!isAdmin) return;
+            
+            if (!await verifyRfidAction('RESOLVE advance to a finalized expense')) return;
 
             const btn = document.getElementById('btn-resolve-adv');
             btn.disabled = true;
@@ -1045,6 +1105,118 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = "Link and Finalize";
+            }
+        });
+
+        // --- RFID PSEUDO-2FA LOGIC ---
+        
+        async function fetchAdminRfid(email) {
+            try {
+                const docSnap = await getDoc(doc(db, 'admins', email));
+                if (docSnap.exists() && docSnap.data().rfid) {
+                    return docSnap.data().rfid;
+                }
+            } catch (error) {
+                console.error("Error fetching admin RFID:", error);
+            }
+            return null;
+        }
+
+        function openRfidModal(context, actionDesc = "") {
+            currentRfidContext = context;
+            const modal = document.getElementById('rfid-modal');
+            const titleEl = document.getElementById('rfid-title');
+            const descEl = document.getElementById('rfid-desc');
+            const inputEl = document.getElementById('rfid-input');
+
+            document.getElementById('rfid-error').classList.add('hidden');
+
+            if (context === 'setup') {
+                titleEl.textContent = "RFID Badge Setup";
+                descEl.textContent = "First time setup: Please scan your ASB admin badge to link it to your account permanently.";
+            } else if (context === 'login') {
+                titleEl.textContent = "2FA Badge Scan";
+                descEl.textContent = "Please scan your assigned admin badge to log in.";
+            } else if (context === 'action') {
+                titleEl.textContent = "Authorization Required";
+                descEl.innerHTML = `Scan your badge to authorize:<br><strong class="text-blue-900 mt-2 block">${actionDesc}</strong>`;
+            }
+
+            modal.classList.remove('hidden');
+            inputEl.value = '';
+            
+            // Force focus immediately and repeatedly if needed
+            setTimeout(() => inputEl.focus(), 100);
+        }
+
+        window.maintainRfidFocus = () => {
+            const modal = document.getElementById('rfid-modal');
+            if (!modal.classList.contains('hidden')) {
+                document.getElementById('rfid-input').focus();
+            }
+        };
+
+        window.cancelRfid = () => {
+            document.getElementById('rfid-modal').classList.add('hidden');
+            document.getElementById('rfid-input').value = '';
+            
+            if (currentRfidContext === 'login' || currentRfidContext === 'setup') {
+                // Cannot proceed with login without badge
+                handleSignOut();
+            } else if (currentRfidContext === 'action' && rfidActionPromiseResolve) {
+                // Abort the protected action
+                rfidActionPromiseResolve(false);
+            }
+            currentRfidContext = null;
+        };
+
+        window.verifyRfidAction = async (actionDesc) => {
+            if (!isAdmin || !rfidAuthenticated) return false;
+            return new Promise((resolve) => {
+                rfidActionPromiseResolve = resolve;
+                openRfidModal('action', actionDesc);
+            });
+        };
+
+        document.getElementById('rfid-input').addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const scannedRfid = e.target.value.trim();
+                const errorEl = document.getElementById('rfid-error');
+                e.target.value = ''; // clear input immediately
+
+                if (!scannedRfid) return;
+
+                if (currentRfidContext === 'setup') {
+                    try {
+                        await setDoc(doc(db, 'admins', currentUser.email), { rfid: scannedRfid });
+                        adminRfid = scannedRfid;
+                        rfidAuthenticated = true;
+                        document.getElementById('rfid-modal').classList.add('hidden');
+                        updateAuthUI();
+                        showNotification("Badge registered successfully!");
+                    } catch (error) {
+                        errorEl.textContent = "Failed to save badge to database.";
+                        errorEl.classList.remove('hidden');
+                    }
+                } else if (currentRfidContext === 'login') {
+                    if (scannedRfid === adminRfid) {
+                        rfidAuthenticated = true;
+                        document.getElementById('rfid-modal').classList.add('hidden');
+                        updateAuthUI();
+                    } else {
+                        errorEl.textContent = "Invalid badge scanned. Access denied.";
+                        errorEl.classList.remove('hidden');
+                    }
+                } else if (currentRfidContext === 'action') {
+                    if (scannedRfid === adminRfid) {
+                        document.getElementById('rfid-modal').classList.add('hidden');
+                        if (rfidActionPromiseResolve) rfidActionPromiseResolve(true);
+                    } else {
+                        errorEl.textContent = "Invalid badge. Authorization failed.";
+                        errorEl.classList.remove('hidden');
+                    }
+                }
             }
         });
 
